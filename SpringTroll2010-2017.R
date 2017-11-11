@@ -124,11 +124,22 @@ objects(pattern = "\\.gcl")
 #### Pair with metadata ####
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Pair with district data from Anne
-# NOTE that fish from 113-95 and 113-97 got moved to 114-21
-require(xlsx)
+# NOTE that fish from 113-95 and 113-97 are going to be included in D114 along with 112-65
 
-spring_troll.df <- read.xlsx(file = "2010-2017 Spring troll asl by district.xlsx", sheetName = "D114com", startRow = 2)
+# require(xlsx)
+# spring_troll.df <- read.xlsx(file = "2010-2017 Spring troll asl by district_gh_ks.xlsx", sheetName = "original data", startRow = 1)
+# str(spring_troll.df)
+
+spring_troll.df <- read.table(file = "2010-2017 Spring troll asl by district_original_data.txt", sep = "\t", header = TRUE)
 str(spring_troll.df)
+table(spring_troll.df$Year, spring_troll.df$District)  # all samples
+
+spring_troll.df$Sub.District.char <- sapply(as.character(spring_troll.df$Sub.District), function(i) {if(!is.na(i) & nchar(i) == 1) {paste0(0, i)} else {i} } )
+
+spring_troll.df$Stat.Area <- paste0(spring_troll.df$District, spring_troll.df$Sub.District.char)
+spring_troll.df$Stat.Area[is.na(spring_troll.df$District)] <- NA
+table(spring_troll.df$Year, spring_troll.df$Stat.Area)  # all samples
+
 
 ids <- sapply(paste0("KTROL", 10:17, "SP"), function(silly) {get(paste0(silly, ".gcl"))$attributes$FK_FISH_ID} )
 str(ids)
@@ -156,8 +167,15 @@ for(yr in 10:17){
   my.gcl <- get(paste0("KTROL", yr, "SP.gcl"))
   match.yr <- match(my.gcl$attributes$FK_FISH_ID, spring_troll.df$Dna.Specimen.No)
   # table(spring_troll.df$Year[match.yr])
-  my.gcl$attributes$District <- spring_troll.df$District.[match.yr]
   my.gcl$attributes$StatWeek <- spring_troll.df$Stat.Week[match.yr]
+  my.gcl$attributes$Port <- spring_troll.df$Port.Code[match.yr]
+  my.gcl$attributes$Quadrant <- spring_troll.df$Quadrant[match.yr]
+  my.gcl$attributes$District <- spring_troll.df$District[match.yr]
+  my.gcl$attributes$SubDistrict <- spring_troll.df$Sub.District.char[match.yr]
+  my.gcl$attributes$StatArea <- spring_troll.df$Stat.Area[match.yr]
+  my.gcl$attributes$Age <- spring_troll.df$Age.European[match.yr]
+  my.gcl$attributes$LengthType <- spring_troll.df$Length.Type[match.yr]
+  my.gcl$attributes$Length <- spring_troll.df$Length.Millimeters[match.yr]
   
   assign(x = paste0("match.20", yr), value = match.yr)
   assign(x = paste0("KTROL", yr, "SP.gcl"), value = my.gcl)
@@ -242,6 +260,28 @@ invisible(sapply(Spring10_17_Strata, function(silly) {
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#### Clean workspace; dget .gcl objects and Locus Control ####
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+rm(list = ls(all = TRUE))
+setwd("V:/Analysis/1_SEAK/Chinook/Mixture/Spring Troll 2010-2017/")
+# This sources all of the new GCL functions to this workspace
+source("C:/Users/krshedd/Documents/R/Functions.GCL.R")
+source("H:/R Source Scripts/Functions.GCL_KS.R")
+
+## Get objects
+SEAKobjects <- list.files(path = "Objects", recursive = FALSE)
+# SEAKobjects <- SEAKobjects[-which(SEAKobjects == "Vials" | SEAKobjects == "OLD_BAD_LOCUSCONTROL")]
+SEAKobjects
+
+invisible(sapply(SEAKobjects, function(objct) {assign(x = unlist(strsplit(x = objct, split = ".txt")), value = dget(file = paste(getwd(), "Objects", objct, sep = "/")), pos = 1) })); beep(2)
+
+## Get un-altered mixtures
+invisible(sapply(paste0("KTROL", 10:17, "SP"), function(silly) {assign(x = paste0(silly, ".gcl"), value = dget(file = paste0("Raw genotypes/PooledCollections_PostQC/", silly, ".txt")), pos = 1)} )); beep(2)
+objects(pattern = "\\.gcl")
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #### Tables by District ####
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Pivots to show number of fish by district by year that we have genotypes for
@@ -315,13 +355,101 @@ ids.genotyped <- sapply(as.character(10:17), function(yr) {
 })
 
 str(ids.genotyped)
-table(spring_troll.df$Dna.Specimen.No %in% unlist(ids.genotyped))
+table(unlist(ids.genotyped) %in% spring_troll.df$Dna.Specimen.No)  # all but District 108 fish
+table(spring_troll.df$Dna.Specimen.No %in% unlist(ids.genotyped))  # not all fish from District 171-174 were genotyped (and passed data QC)
 
 spring_troll.df$Genotyped <- spring_troll.df$Dna.Specimen.No %in% unlist(ids.genotyped)
-addmargins(table(spring_troll.df$Year, spring_troll.df$District., spring_troll.df$Genotyped))
+addmargins(table(spring_troll.df$Year, spring_troll.df$District, spring_troll.df$Genotyped))
 
 # options(java.parameters = "-Xmx100g")
-write.xlsx(x = spring_troll.df, file = "2010-2017 Spring troll asl by district.xlsx", sheetName = "D114com_genotyped", append = TRUE)
-write.table(x = spring_troll.df, file = "2010-2017 Spring troll asl by district.txt", row.names = FALSE)
+# write.xlsx(x = spring_troll.df, file = "2010-2017 Spring troll asl by district.xlsx", sheetName = "D114com_genotyped", append = TRUE)
+write.table(x = spring_troll.df, file = "2010-2017 Spring troll asl by district_original_data_genotyped.txt", row.names = FALSE)
 
 # save.image("SpringTroll2010-2017.RData")
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#### Create Variable for Mixture ####
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+table(KTROL15SP.gcl$attributes$District.fac %in% 101:102)
+table(KTROL15SP.gcl$attributes$District.fac %in% 103)
+table(KTROL15SP.gcl$attributes$District.fac %in% 106:108 & KTROL15SP.gcl$attributes$StatArea != 10643)
+table(KTROL15SP.gcl$attributes$District.fac %in% c(109:110, 112) & KTROL15SP.gcl$attributes$StatArea != 11265)
+table(KTROL15SP.gcl$attributes$District.fac %in% 113)
+table(KTROL15SP.gcl$attributes$District.fac %in% 114 | KTROL15SP.gcl$attributes$StatArea %in% c(11265, 11395, 11397))
+table(KTROL15SP.gcl$attributes$District.fac %in% 183)
+
+
+# Add new factor with mixtures
+for(yr in 10:17){
+  my.gcl <- get(paste0("KTROL", yr, "SP.gcl"))
+
+  my.gcl$attributes$Mixture <- NA
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 101:102] <- "101/102"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 103] <- "103"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 106:108 & my.gcl$attributes$StatArea != 10643] <- "106/107/108"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% c(109:110, 112) & my.gcl$attributes$StatArea != 11265] <- "109/110/112"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 113] <- "113"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 114 | my.gcl$attributes$StatArea %in% c(11265, 11395, 11397)] <- "114"
+  my.gcl$attributes$Mixture[my.gcl$attributes$District.fac %in% 183] <- "183"
+  
+  my.gcl$attributes$Mixture <- factor(x = my.gcl$attributes$Mixture, levels = c("101/102", "103", "106/107/108", "109/110/112", "113", "114", "183"))
+  
+  assign(x = paste0("KTROL", yr, "SP.gcl"), value = my.gcl)
+}
+
+
+# Pivot of years by mixtures with NA
+addmargins(t(sapply(as.character(10:17), function(yr) {
+  my.gcl <- get(paste0("KTROL", yr, "SP.gcl"))
+  table(my.gcl$attributes$Mixture, useNA = "always")
+} )))
+
+
+# Pivot of years by mixtures without NA
+addmargins(t(sapply(as.character(10:17), function(yr) {
+  my.gcl <- get(paste0("KTROL", yr, "SP.gcl"))
+  table(my.gcl$attributes$Mixture)
+} )))
+
+#     101/102 103 106/107/108 109/110/112  113 114  183  Sum
+# 10      148   0          10          16  296 242    0  712
+# 11      152   0         193          70  459 111    0  985
+# 12      128   0         257         132  301 168    0  986
+# 13      133   0         105          97  251 117  497 1200
+# 14      142  96         126          94  209  69  377 1113
+# 15      109 100         156         112  177  24  316  994
+# 16       51 102         135         140  104  78   95  705
+# 17       50 101         125          90  187  61    0  614
+# Sum     913 399        1107         751 1984 870 1285 7309
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Save PostQC_Metadata .gcl's as back-up:
+# dir.create("Raw genotypes/PooledCollections_PostQC_Metadata")
+invisible(sapply(Spring10_17_Strata, function(silly) {
+  dput(x = get(paste(silly, ".gcl", sep = '')), file = paste0("Raw genotypes/PooledCollections_PostQC_Metadata/" , silly, ".txt"))
+} )); beep(8)
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#### Clean workspace; dget .gcl objects and Locus Control ####
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+rm(list = ls(all = TRUE))
+setwd("V:/Analysis/1_SEAK/Chinook/Mixture/Spring Troll 2010-2017/")
+# This sources all of the new GCL functions to this workspace
+source("C:/Users/krshedd/Documents/R/Functions.GCL.R")
+source("H:/R Source Scripts/Functions.GCL_KS.R")
+
+## Get objects
+SEAKobjects <- list.files(path = "Objects", recursive = FALSE)
+# SEAKobjects <- SEAKobjects[-which(SEAKobjects == "Vials" | SEAKobjects == "OLD_BAD_LOCUSCONTROL")]
+SEAKobjects
+
+invisible(sapply(SEAKobjects, function(objct) {assign(x = unlist(strsplit(x = objct, split = ".txt")), value = dget(file = paste(getwd(), "Objects", objct, sep = "/")), pos = 1) })); beep(2)
+
+## Get un-altered mixtures
+invisible(sapply(paste0("KTROL", 10:17, "SP"), function(silly) {assign(x = paste0(silly, ".gcl"), value = dget(file = paste0("Raw genotypes/PooledCollections_PostQC_Metadata/", silly, ".txt")), pos = 1)} )); beep(2)
+objects(pattern = "\\.gcl")
