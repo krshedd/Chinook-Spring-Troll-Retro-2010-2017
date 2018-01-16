@@ -368,6 +368,46 @@ write.table(x = spring_troll.df, file = "2010-2017 Spring troll asl by district_
 
 # save.image("SpringTroll2010-2017.RData")
 
+spring_troll.df <- read.table(file = "2010-2017 Spring troll asl by district_original_data_genotyped.txt", stringsAsFactors = FALSE, header = TRUE)
+str(spring_troll.df)
+Spring171.Vials <- spring_troll.df$Dna.Specimen.No[spring_troll.df$Year == 2013 & spring_troll.df$Quadrant == 171 & spring_troll.df$Genotyped == TRUE]
+
+SpringNO.Vials  # what was run in 2013
+
+all(SpringNO.Vials %in% Spring171.Vials)  # TRUE
+
+# Number of samples by District and SW
+table(spring_troll.df$District[spring_troll.df$Genotyped == TRUE & spring_troll.df$Year == 2013], 
+      spring_troll.df$Stat.Week[spring_troll.df$Genotyped == TRUE & spring_troll.df$Year == 2013])
+
+# Read in harvest
+require(xlsx)
+spring_harvest.df <- read.xlsx(file = "2010-2017 Spring troll asl by district_gh_ks.xlsx", sheetName = "CE001353", startRow = 23, header = TRUE)
+# spring_harvest.df <- read.csv(file = "CE001353.csv", skip = 22, row.names = NULL, stringsAsFactors = FALSE)
+str(spring_harvest.df)
+
+require(tidyr)
+require(dplyr)
+require(reshape2)
+
+# Specific to 2013
+spring_harvest.df %>% 
+  filter(Year == 2013) %>% 
+  cast(Area.Value ~ Time.Value, value = "N.Catch")
+
+spring_troll.df %>% 
+  filter(Year == 2013) %>% 
+  cast(District ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
+
+# Specific to D113
+spring_harvest.df %>% 
+  filter(Area.Value == 113) %>% 
+  cast(Year ~ Time.Value, value = "N.Catch")
+
+spring_troll.df %>% 
+  filter(District == 113) %>% 
+  cast(Year ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #### Create Variable for Mixture ####
