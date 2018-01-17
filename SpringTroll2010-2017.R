@@ -368,6 +368,11 @@ write.table(x = spring_troll.df, file = "2010-2017 Spring troll asl by district_
 
 # save.image("SpringTroll2010-2017.RData")
 
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Look at how representative our sampling is by SW
+# Read in ASL
 spring_troll.df <- read.table(file = "2010-2017 Spring troll asl by district_original_data_genotyped.txt", stringsAsFactors = FALSE, header = TRUE)
 str(spring_troll.df)
 Spring171.Vials <- spring_troll.df$Dna.Specimen.No[spring_troll.df$Year == 2013 & spring_troll.df$Quadrant == 171 & spring_troll.df$Genotyped == TRUE]
@@ -380,6 +385,7 @@ all(SpringNO.Vials %in% Spring171.Vials)  # TRUE
 table(spring_troll.df$District[spring_troll.df$Genotyped == TRUE & spring_troll.df$Year == 2013], 
       spring_troll.df$Stat.Week[spring_troll.df$Genotyped == TRUE & spring_troll.df$Year == 2013])
 
+
 # Read in harvest
 require(xlsx)
 spring_harvest.df <- read.xlsx(file = "2010-2017 Spring troll asl by district_gh_ks.xlsx", sheetName = "CE001353", startRow = 23, header = TRUE)
@@ -390,6 +396,7 @@ require(tidyr)
 require(dplyr)
 require(reshape2)
 
+
 # Specific to 2013
 spring_harvest.df %>% 
   filter(Year == 2013) %>% 
@@ -399,15 +406,89 @@ spring_troll.df %>%
   filter(Year == 2013) %>% 
   cast(District ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
 
+
 # Specific to D113
-spring_harvest.df %>% 
+D113_harvest <- spring_harvest.df %>% 
   filter(Area.Value == 113) %>% 
-  cast(Year ~ Time.Value, value = "N.Catch")
+  select(Year, Time.Value, N.Catch) %>% 
+  spread(Time.Value, N.Catch)
 
-spring_troll.df %>% 
+# D113_samples <- spring_troll.df %>% 
+#   filter(District == 113) %>% 
+#   cast(Year ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
+
+D113_samples <- spring_troll.df %>% 
   filter(District == 113) %>% 
-  cast(Year ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
+  select(Year, Stat.Week, Genotyped) %>% 
+  group_by(Year, Stat.Week) %>% 
+  summarise(n = sum(Genotyped)) %>% 
+  spread(Stat.Week, n)
 
+
+
+# Harvest proportion by SW
+round(D113_harvest[, -1] / rowSums(D113_harvest[, -1], na.rm = TRUE), 2)
+
+# Sample proportion by SW
+round(D113_samples[, -1] / rowSums(D113_samples[, -1], na.rm = TRUE), 2)
+
+# Visualize how unrepresentative samples are
+require(lattice)
+new.colors <- colorRampPalette(c("white", "darkgreen"))
+
+data.mat <- as.matrix(D113_harvest[, -1] / rowSums(D113_harvest[, -1], na.rm = TRUE))
+rownames(data.mat) <- 2010:2017
+levelplot(data.mat, 
+          col.regions = new.colors, 
+          at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
+          main = "Total Catch", xlab = "Year", ylab = "Stat Week", 
+          scales = list(x = list(rot = 90)), 
+          aspect = "fill",
+          panel = function(...) {
+            panel.fill("black")
+            panel.levelplot(...)}
+)  # aspect = "iso" will make squares
+
+data.mat <- as.matrix(D113_samples[, -1] / rowSums(D113_samples[, -1], na.rm = TRUE))
+rownames(data.mat) <- 2010:2017
+levelplot(data.mat, 
+         col.regions = new.colors, 
+         at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
+         main = "Total Samples", xlab = "Year", ylab = "Stat Week", 
+         scales = list(x = list(rot = 90)), 
+         aspect = "fill",
+         panel = function(...) {
+           panel.fill("black")
+           panel.levelplot(...)}
+)  # aspect = "iso" will make squares
+
+
+# What would sample sizes be if we subsampled?
+
+
+D113_harvest_tall <- spring_harvest.df %>% 
+  filter(Area.Value == 113) %>% 
+  select(Year, Time.Value, N.Catch) 
+
+
+D113_samples_tall <- spring_troll.df %>% 
+  filter(District == 113) %>% 
+  select(Year, Stat.Week, Genotyped) %>% 
+  group_by(Year, Stat.Week) %>% 
+  summarise(n = sum(Genotyped))
+
+# Left join to combine harvest and n_samples
+D113_harvest_samples <- full_join(x = D113_samples_tall, y = D113_harvest_tall, 
+                                  by = c("Year" = "Year", "Stat.Week" = "Time.Value"))
+
+# What is sample size for max harvest stat week
+D113_harvest_samples %>% 
+  group_by(Year) %>% 
+  summarise(max_n = n[which.max(N.Catch)])
+  
+
+IndividualAssignmentSummary.GCL(GroupNames = GroupNames4Pub, groupvec = GroupVec4, mixnames = "D113Troll_2013", 
+                                BAYESoutputDir = "BAYES/Output", nchains = 5, nreps = 40000, burn = 0.5, thin = 100)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #### Create Variable for Mixture ####
