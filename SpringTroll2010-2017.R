@@ -487,8 +487,17 @@ D113_harvest_samples %>%
   summarise(max_n = n[which.max(N.Catch)])
   
 
+# Look at IA to see if % Alaska stocks < over time
+require(ggplot2)
+spring_troll.df %>% 
+  filter(District == 113 & Year == 2013) %>% 
+  ggplot(aes(Sample.Date, Dna.Specimen.No)) + geom_point()
+
 IndividualAssignmentSummary.GCL(GroupNames = GroupNames4Pub, groupvec = GroupVec4, mixnames = "D113Troll_2013", 
                                 BAYESoutputDir = "BAYES/Output", nchains = 5, nreps = 40000, burn = 0.5, thin = 100)
+# This failed for 2 reasons
+# 1) since there are more than 300 pops in the baseline, the CLS files wraps rows (i.e. row 1 has 300 columns, row 2 has the remaining 357)
+# 2) a mixture individual was removed due to missing allele, while it indicates which individual it was in the .SUM file, it will be a pain to figurue it all out.
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #### Create Variable for Mixture ####
