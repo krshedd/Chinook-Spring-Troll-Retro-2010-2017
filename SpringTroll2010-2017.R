@@ -407,65 +407,7 @@ spring_troll.df %>%
   cast(District ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
 
 
-# Specific to D113
-D113_harvest <- spring_harvest.df %>% 
-  filter(Area.Value == 113) %>% 
-  select(Year, Time.Value, N.Catch) %>% 
-  spread(Time.Value, N.Catch)
-
-# D113_samples <- spring_troll.df %>% 
-#   filter(District == 113) %>% 
-#   cast(Year ~ Stat.Week, value = "Genotyped", fun.aggregate = sum)
-
-D113_samples <- spring_troll.df %>% 
-  filter(District == 113) %>% 
-  select(Year, Stat.Week, Genotyped) %>% 
-  group_by(Year, Stat.Week) %>% 
-  summarise(n = sum(Genotyped)) %>% 
-  spread(Stat.Week, n)
-
-
-
-# Harvest proportion by SW
-round(D113_harvest[, -1] / rowSums(D113_harvest[, -1], na.rm = TRUE), 2)
-
-# Sample proportion by SW
-round(D113_samples[, -1] / rowSums(D113_samples[, -1], na.rm = TRUE), 2)
-
-# Visualize how unrepresentative samples are
-require(lattice)
-new.colors <- colorRampPalette(c("white", "darkgreen"))
-
-data.mat <- as.matrix(D113_harvest[, -1] / rowSums(D113_harvest[, -1], na.rm = TRUE))
-rownames(data.mat) <- 2010:2017
-levelplot(data.mat, 
-          col.regions = new.colors, 
-          at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
-          main = "Total Catch", xlab = "Year", ylab = "Stat Week", 
-          scales = list(x = list(rot = 90)), 
-          aspect = "fill",
-          panel = function(...) {
-            panel.fill("black")
-            panel.levelplot(...)}
-)  # aspect = "iso" will make squares
-
-data.mat <- as.matrix(D113_samples[, -1] / rowSums(D113_samples[, -1], na.rm = TRUE))
-rownames(data.mat) <- 2010:2017
-levelplot(data.mat, 
-         col.regions = new.colors, 
-         at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
-         main = "Total Samples", xlab = "Year", ylab = "Stat Week", 
-         scales = list(x = list(rot = 90)), 
-         aspect = "fill",
-         panel = function(...) {
-           panel.fill("black")
-           panel.levelplot(...)}
-)  # aspect = "iso" will make squares
-
-
 # What would sample sizes be if we subsampled?
-
-
 D113_harvest_tall <- spring_harvest.df %>% 
   filter(Area.Value == 113) %>% 
   select(Year, Time.Value, N.Catch) 
@@ -498,6 +440,71 @@ IndividualAssignmentSummary.GCL(GroupNames = GroupNames4Pub, groupvec = GroupVec
 # This failed for 2 reasons
 # 1) since there are more than 300 pops in the baseline, the CLS files wraps rows (i.e. row 1 has 300 columns, row 2 has the remaining 357)
 # 2) a mixture individual was removed due to missing allele, while it indicates which individual it was in the .SUM file, it will be a pain to figurue it all out.
+
+
+## Write functions to visualize proportional harvest by SW for specific District
+harvest_level.f <- function(district) {
+  require(tidyr)
+  require(dplyr)
+  require(reshape2)
+  
+  D_harvest <- spring_harvest.df %>% 
+    filter(Area.Value == district) %>% 
+    select(Year, Time.Value, N.Catch) %>% 
+    spread(Time.Value, N.Catch)
+
+  # Visualize how unrepresentative samples are
+  require(lattice)
+  new.colors <- colorRampPalette(c("white", "darkgreen"))
+  
+  data.mat <- as.matrix(D_harvest[, -1] / rowSums(D_harvest[, -1], na.rm = TRUE))
+  rownames(data.mat) <- 2010:2017
+  levelplot(data.mat, 
+            col.regions = new.colors, 
+            at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
+            main = paste0("Total Harvest D", district), xlab = "Year", ylab = "Stat Week", 
+            scales = list(x = list(rot = 90)), 
+            aspect = "fill",
+            panel = function(...) {
+              panel.fill("black")
+              panel.levelplot(...)}
+  )  # aspect = "iso" will make squares
+}
+
+## Write functions to visualize proportional samples by SW for specific District
+samples_level.f <- function(district) {
+  require(tidyr)
+  require(dplyr)
+  require(reshape2)
+  
+  D_samples <- spring_troll.df %>% 
+    filter(District == district) %>% 
+    select(Year, Stat.Week, Genotyped) %>% 
+    group_by(Year, Stat.Week) %>% 
+    summarise(n = sum(Genotyped)) %>% 
+    spread(Stat.Week, n)
+  
+  # Visualize how unrepresentative samples are
+  require(lattice)
+  new.colors <- colorRampPalette(c("white", "darkgreen"))
+
+    data.mat <- as.matrix(D_samples[, -1] / rowSums(D_samples[, -1], na.rm = TRUE))
+    rownames(data.mat) <- 2010:2017
+    levelplot(data.mat, 
+              col.regions = new.colors, 
+              at = seq(from = 0, to = max(data.mat, na.rm = TRUE), length.out = 100), 
+              main = paste0("Total Samples D", district), xlab = "Year", ylab = "Stat Week", 
+              scales = list(x = list(rot = 90)), 
+              aspect = "fill",
+              panel = function(...) {
+                panel.fill("black")
+                panel.levelplot(...)}
+    )  # aspect = "iso" will make squares
+}
+
+
+harvest_level.f(district = 114)
+samples_level.f(district = 114)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #### Create Variable for Mixture ####
